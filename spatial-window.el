@@ -382,7 +382,11 @@ EXTRA-BINDINGS is an alist of (key-string . command) for additional bindings.
       (define-key map (kbd (car ext)) key-action))
     (define-key map (kbd "C-g") #'spatial-window--abort)
     (dolist (binding extra-bindings)
-      (define-key map (kbd (car binding)) (cdr binding)))
+      (define-key map (kbd (car binding)) (cdr binding))
+      ;; Also bind [return] so `lookup-key' in the keep-pred matches the raw
+      ;; GUI event before `function-key-map' translates it to ?\r.
+      (when (equal (car binding) "RET")
+        (define-key map [return] (cdr binding))))
     map))
 
 (defun spatial-window--setup-transient-mode (keymap &optional highlighted message)

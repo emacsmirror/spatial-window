@@ -564,8 +564,12 @@ Callers should set additional state fields before calling this."
 (defun spatial-window--set-action-kill ()
   "Switch to kill action with current window soft-pre-selected.
 The pre-selection is replaced if the first key press picks a
-different window, avoiding an extra deselect step."
+different window, avoiding an extra deselect step.
+Errors when the frame has only one window, since the sole window
+cannot be deleted."
   (interactive)
+  (when (one-window-p)
+    (user-error "Cannot kill the sole window"))
   (let ((st spatial-window--state))
     (setf (spatial-window--state-selected-windows st) (list (selected-window))
           (spatial-window--state-kill-soft-select st) (selected-window)))
@@ -589,14 +593,22 @@ different window, avoiding an extra deselect step."
     (_ (spatial-window--complete-single-input (selected-window)))))
 
 (defun spatial-window--set-action-swap ()
-  "Switch to swap action, recording current window as source."
+  "Switch to swap action, recording current window as source.
+Errors when the frame has only one window, since there is no
+other window to swap with."
   (interactive)
+  (when (one-window-p)
+    (user-error "Cannot swap: only one window"))
   (setf (spatial-window--state-source-window spatial-window--state) (selected-window))
   (spatial-window--set-action 'swap "SWAP: select target window"))
 
 (defun spatial-window--set-action-focus ()
-  "Switch to focus action with current window highlighted."
+  "Switch to focus action with current window highlighted.
+Errors when the frame has only one window, since it is already
+the sole window."
   (interactive)
+  (when (one-window-p)
+    (user-error "Window is alone in the forest.  Very focused"))
   (spatial-window--set-action 'focus "FOCUS: select window, RET to focus current"))
 
 (defun spatial-window--set-action-split (action message)

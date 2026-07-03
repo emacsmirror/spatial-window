@@ -599,15 +599,26 @@ different window, avoiding an extra deselect step."
   (interactive)
   (spatial-window--set-action 'focus "FOCUS: select window, RET to focus current"))
 
+(defun spatial-window--set-action-split (action message)
+  "Switch to split ACTION, or split immediately with only one window.
+ACTION is `split-right' or `split-below'.  MESSAGE prompts for a
+target window.  When the frame has a single window there is only
+one possible target, so split it right away instead of prompting."
+  (if (one-window-p)
+      (progn
+        (setf (spatial-window--state-action spatial-window--state) action)
+        (spatial-window--complete-single-input (selected-window)))
+    (spatial-window--set-action action message)))
+
 (defun spatial-window--set-action-split-right ()
   "Switch to split-right action with current window highlighted."
   (interactive)
-  (spatial-window--set-action 'split-right "SPLIT |: select window to split side-by-side"))
+  (spatial-window--set-action-split 'split-right "SPLIT |: select window to split side-by-side"))
 
 (defun spatial-window--set-action-split-below ()
   "Switch to split-below action with current window highlighted."
   (interactive)
-  (spatial-window--set-action 'split-below "SPLIT -: select window to split top-bottom"))
+  (spatial-window--set-action-split 'split-below "SPLIT -: select window to split top-bottom"))
 
 (defun spatial-window--history-refresh ()
   "Recompute assignments and refresh overlays after history navigation.

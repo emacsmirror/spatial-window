@@ -189,6 +189,70 @@
          (grid (spatial-window--format-key-grid all-keys spatial-window-test-layout)))
     (should (string-match-p "^q w e r t y u i o p$" (car (split-string grid "\n"))))))
 
+;;; Side window tests
+
+(defun spatial-window-test--focus (win)
+  "Run the \\='focus action on WIN, returning the message it emitted."
+  (let ((spatial-window--state (spatial-window--make-state :action 'focus))
+        msg)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
+      (spatial-window--complete-single-input win))
+    msg))
+
+(ert-deftest spatial-window-test-demote-side-window ()
+  "Demoting leaves WIN alone in the frame and no longer a side window."
+  (save-window-excursion
+    (let ((side (display-buffer-in-side-window
+                 (get-buffer-create "*swt-side*") '((side . right)))))
+      (spatial-window--demote-side-window side)
+      (should (= 1 (length (window-list nil 'no-minibuf))))
+      (should-not (window-parameter side 'window-side))
+      ;; The parameter lingering here is what made the frame unrepairable:
+      ;; a later side window could then be neither displayed nor deleted.
+      (let ((other (display-buffer-in-side-window
+                    (get-buffer-create "*swt-other*") '((side . bottom)))))
+        (should (window-live-p other))
+        (delete-window other)))))
+
+(ert-deftest spatial-window-test-focus-side-window-reports-demotion ()
+  "Focusing a side window demotes it and says so; a normal window does not."
+  (save-window-excursion
+    (set-frame-parameter nil 'spatial-window-config nil)
+    (let ((side (display-buffer-in-side-window
+                 (get-buffer-create "*swt-side*") '((side . right)))))
+      (should (equal "Focused window (demoted from side window)"
+                     (spatial-window-test--focus side)))
+      (should-not (window-parameter side 'window-side))))
+  (save-window-excursion
+    (set-frame-parameter nil 'spatial-window-config nil)
+    (let ((plain (selected-window)))
+      (display-buffer-in-side-window (get-buffer-create "*swt-side*") '((side . right)))
+      (should (equal "Focused window" (spatial-window-test--focus plain)))
+      ;; Focusing a normal window still clears sibling side windows.
+      (should-not (window-with-parameter 'window-side)))))
+
+(ert-deftest spatial-window-test-focus-honors-no-delete-other-windows ()
+  "Focus leaves a window declaring `no-delete-other-windows' alone, as \\[delete-other-windows] does."
+  (save-window-excursion
+    (set-frame-parameter nil 'spatial-window-config nil)
+    (let* ((plain (selected-window))
+           (keep (split-window plain nil 'right)))
+      (set-window-buffer keep (get-buffer-create "*swt-keep*"))
+      (set-window-parameter keep 'no-delete-other-windows t)
+      (spatial-window-test--focus plain)
+      (should (window-live-p keep)))))
+
+(ert-deftest spatial-window-test-split-honors-no-delete-other-windows ()
+  "Split leaves a window declaring `no-delete-other-windows' alone."
+  (save-window-excursion
+    (let* ((plain (selected-window))
+           (keep (split-window plain nil 'right)))
+      (set-window-buffer keep (get-buffer-create "*swt-keep*"))
+      (set-window-parameter keep 'no-delete-other-windows t)
+      (spatial-window--split-window plain 'below)
+      (should (window-live-p keep)))))
+
 (provide 'spatial-window-test)
 
 ;;; spatial-window-test.el ends here

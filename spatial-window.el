@@ -485,17 +485,23 @@ Evicts oldest entry when `spatial-window-history-max' is exceeded."
     (when (spatial-window--state-overlays-visible st)
       (spatial-window--show-overlays (spatial-window--state-highlighted-windows st)))))
 
+(defun spatial-window--demote-side-window (win)
+  "Delete all windows but WIN, clearing WIN's side-window status.
+Clearing the parameter first is what lets this be a plain
+`delete-other-windows': the only guard in the way is the one
+protecting WIN itself, and leaving the others in force keeps
+`no-delete-other-windows', atomic windows and a window's own
+`delete-other-windows' parameter honoured."
+  (set-window-parameter win 'window-side nil)
+  (delete-other-windows win))
+
 (defun spatial-window--split-window (win side)
   "Focus WIN full-frame, then split along SIDE with next buffer.
 SIDE is passed to `split-window' (e.g. \\='right or \\='below).
 WIN becomes the primary (left/top) pane; the new pane receives the
 next buffer from the frame's buffer list."
   (select-window win)
-  (let ((ignore-window-parameters t))
-    (delete-other-windows win))
-  ;; After delete-other-windows the window is no longer a side window,
-  ;; but clear the parameter explicitly in case it lingers.
-  (set-window-parameter win 'window-side nil)
+  (spatial-window--demote-side-window win)
   (let ((new-win (split-window win nil side))
         (next-buf (cl-find-if-not #'minibufferp (cdr (buffer-list (selected-frame))))))
     (when next-buf
@@ -515,9 +521,11 @@ next buffer from the frame's buffer list."
     ('focus
      (spatial-window--save-layout 'focus)
      (select-window win)
-     (let ((ignore-window-parameters t))
-       (delete-other-windows win))
-     (message "Focused window"))
+     (let ((was-side (window-parameter win 'window-side)))
+       (spatial-window--demote-side-window win)
+       (message (if was-side
+                    "Focused window (demoted from side window)"
+                  "Focused window"))))
     ('split-right
      (spatial-window--save-layout 'split-right)
      (spatial-window--split-window win 'right))
